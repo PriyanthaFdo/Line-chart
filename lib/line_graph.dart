@@ -1,8 +1,10 @@
+import 'dart:html';
 import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:line_chart/data.dart';
 
 // https://github.com/imaNNeo/fl_chart/blob/master/repo_files/documentations/line_chart.md
 // fl_charts line-chart documentation ↑
@@ -17,91 +19,50 @@ class LineGraph extends StatefulWidget {
 class _LineGraphState extends State<LineGraph> {
   @override
   Widget build(BuildContext context) {
-    // Raw data
-    List<double> temperature = [
-      3.69,
-      3.43,
-      3.56,
-      3.99,
-      2.89,
-      4.08,
-      4.43,
-      4.21,
-      4.29,
-      4.11,
-      4.01,
-      2.61,
-      2.52,
-      6.5,
-      4.53,
-      4.34,
-      2.85,
-      2.16,
-      2.49,
-      5.8
-    ];
-    List<double> humidity = [
-      3.02,
-      5.46,
-      4.61,
-      6.88,
-      1.37,
-      7.45,
-      0.32,
-      2.55,
-      2.03,
-      2.75,
-      9.06,
-      1.05,
-      3.62,
-      7.67,
-      3.42,
-      1.20,
-      3.01,
-      5.58,
-      4.90,
-      6.03
-    ];
-    List<double> time = [
-      1646858397,
-      1646934788,
-      1646935084,
-      1646936481,
-      1646940403,
-      1646980909,
-      1646984407,
-      1646985500,
-      1647002715,
-      1647031200,
-      1647033917,
-      1647053214,
-      1647054561,
-      1647070985,
-      1647075350,
-      1647076565,
-      1647083145,
-      1647090292,
-      1647103899,
-      1647105974
-    ];
+    // Initial Data
+    List<ChartData> data = initialData;
 
-    // calculate min and max for left and right
-    double tempMin = temperature.reduce((a, b) => a < b ? a : b);
-    double tempMax = temperature.reduce((a, b) => a > b ? a : b);
-    double humiMin = humidity.reduce((a, b) => a < b ? a : b);
-    double humiMax = humidity.reduce((a, b) => a > b ? a : b);
+    // Humidity chart should display from 0% to 100%
+    const double humidityFixedUpperLimit = 100;
+    const double humidityFixedLowerLimit = 0;
+
+    // Colors for the lines
+    const temperatureColor = Color(0xFFFF9800);
+    const humidityColor = Color(0xff03A9F4);
+
+    // The UpperLimit and LowerLimit can vary according to the Logger
+    double tempUpperLimit = 8;
+    double tempLowerLimit = 2;
+    // Calculate the min & max to display in chart
+    double calculatedTempMax = 6; //tempUpperLimit + (tempUpperLimit - tempLowerLimit) / 2;
+    double calculatedTempMin = 0; //tempLowerLimit - (tempUpperLimit - tempLowerLimit) / 2;
+
+    // Converts the temperature into a value that is compared to the humidity scale
+    double convertTemperatureValue(double temperature) {
+      return (temperature - calculatedTempMin) / (calculatedTempMax - calculatedTempMin) * (humidityFixedUpperLimit - humidityFixedLowerLimit) + humidityFixedLowerLimit;
+    }
+
+    // Converts converted temperature into display value that is according to the original temperature
+    double displayTemperatureValue(double convertedTemperature) {
+      return (convertedTemperature - humidityFixedLowerLimit) / (humidityFixedUpperLimit - humidityFixedLowerLimit) * (calculatedTempMax - calculatedTempMin) + calculatedTempMin;
+    }
+
+    String unixToDateTime({required int unixStamp, required String dateFormat}) {
+      final date = DateTime.fromMillisecondsSinceEpoch(unixStamp * 1000);
+      final formatter = DateFormat(dateFormat);
+      return formatter.format(date);
+    }
 
     // create the humidity FlSpot points
     List<FlSpot> humiSpots = [];
-    for (int i = 0; i < time.length; i++) {
-      humiSpots.add(FlSpot(time[i], humidity[i]));
+    for (int i = 0; i < data.length; i++) {
+      humiSpots.add(FlSpot(double.parse(data[i].unixTime.toString()), data[i].humidity));
     }
 
-    // create the temperature FlSpot points in the scale of humidity
+    // create the temperature FlSpot points
     List<FlSpot> tempSpots = [];
-    for (int i = 0; i < time.length; i++) {
-      double calculatedTempSpot = (temperature[i] - tempMin) / (tempMax - tempMin) * (humiMax - humiMin) + humiMin;
-      tempSpots.add(FlSpot(time[i], calculatedTempSpot));
+    for (int i = 0; i < data.length; i++) {
+      tempSpots.add(FlSpot(double.parse(data[i].unixTime.toString()), convertTemperatureValue(data[i].temperature)));
     }
 
     return Container(
@@ -112,32 +73,37 @@ class _LineGraphState extends State<LineGraph> {
           lineBarsData: [
             LineChartBarData(
               spots: tempSpots,
-              color: Colors.red,
+              color: temperatureColor,
               isCurved: false,
               dotData: FlDotData(show: false),
             ),
             LineChartBarData(
               spots: humiSpots,
-              color: Colors.blue,
+              color: humidityColor,
               isCurved: false,
               dotData: FlDotData(show: false),
             ),
           ],
-          minX: time.first,
-          maxX: time.last,
-          minY: 0,
-          maxY: 100,
+          minX: double.parse(data.first.unixTime.toString()),
+          maxX: double.parse(data.last.unixTime.toString()),
+          minY: humidityFixedLowerLimit,
+          maxY: humidityFixedUpperLimit,
           titlesData: FlTitlesData(
             topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: AxisTitles(
+              axisNameWidget: const Padding(
+                padding: EdgeInsets.only(bottom: 8.0),
+                child: Text("Humidity"),
+              ),
+              axisNameSize: 40,
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 50,
                 interval: 10,
                 getTitlesWidget: (value, meta) {
                   return Text(
-                    "$value %",
-                    style: const TextStyle(color: Colors.blue),
+                    " $value %",
+                    style: const TextStyle(color: humidityColor),
                   );
                 },
               ),
@@ -146,16 +112,16 @@ class _LineGraphState extends State<LineGraph> {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 150,
-                interval: (time.last - time.first) / 10, // divide x-axis titles for 10 sections
                 getTitlesWidget: (value, meta) {
-                  final date = DateTime.fromMillisecondsSinceEpoch(value.toInt() * 1000);
-                  final formatter = DateFormat('MMM d, yyyy H:mm');
                   return RotatedBox(
                     quarterTurns: 3,
                     child: Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: Text(
-                        formatter.format(date),
+                        unixToDateTime(
+                          unixStamp: value.toInt(),
+                          dateFormat: 'MMM d, yyyy H:mm',
+                        ),
                         textAlign: TextAlign.right,
                       ),
                     ),
@@ -164,22 +130,62 @@ class _LineGraphState extends State<LineGraph> {
               ),
             ),
             leftTitles: AxisTitles(
+              axisNameWidget: const Padding(
+                padding: EdgeInsets.only(bottom: 8.0),
+                child: Text("Temperature"),
+              ),
+              axisNameSize: 40,
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 80,
-                interval: 10,
+                reservedSize: 60,
                 getTitlesWidget: (value, meta) {
-                  double displayTemp = (value - humiMin) * (tempMax - tempMin) / (humiMax - humiMin) + tempMin;
-
                   return Text(
-                    "${displayTemp.toStringAsFixed(2)} ℃",
-                    style: const TextStyle(color: Colors.red),
+                    "${displayTemperatureValue(value).toStringAsFixed(2)} ℃",
+                    style: const TextStyle(color: temperatureColor),
                   );
                 },
               ),
             ),
           ),
-          lineTouchData: LineTouchData(enabled: true),
+          lineTouchData: LineTouchData(
+            enabled: true,
+            touchTooltipData: LineTouchTooltipData(
+              maxContentWidth: 150,
+              tooltipMargin: 32,
+              fitInsideVertically: true,
+              tooltipHorizontalAlignment: FLHorizontalAlignment.right,
+              tooltipHorizontalOffset: 16,
+              getTooltipItems: (touchedSpots) {
+                List<LineTooltipItem> toolTipList = [];
+
+                toolTipList.add(LineTooltipItem(
+                  "${unixToDateTime(unixStamp: touchedSpots[0].x.toInt(), dateFormat: "yyyy-MMM-dd, hh:mm")} \n Temperature: ${displayTemperatureValue(touchedSpots[0].y).toStringAsFixed(1)} ℃",
+                  const TextStyle(color: Colors.white),
+                ));
+
+                toolTipList.add(LineTooltipItem(
+                  "Humidity: ${touchedSpots[1].y} %",
+                  const TextStyle(color: Colors.white),
+                ));
+
+                return toolTipList;
+              },
+            ),
+            getTouchedSpotIndicator: (LineChartBarData barData, List<int> indicators) {
+              return indicators.map(
+                (int index) {
+                  final line = FlLine(
+                    color: Colors.grey,
+                    strokeWidth: 3,
+                  );
+                  return TouchedSpotIndicatorData(
+                    line,
+                    FlDotData(),
+                  );
+                },
+              ).toList();
+            },
+          ),
         ),
       ),
     );
