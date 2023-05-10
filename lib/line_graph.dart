@@ -1,10 +1,8 @@
-import 'dart:html';
-import 'dart:math';
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:line_chart/data.dart';
+import 'package:line_chart/slider.dart';
 
 // https://github.com/imaNNeo/fl_chart/blob/master/repo_files/documentations/line_chart.md
 // fl_charts line-chart documentation ↑
@@ -21,6 +19,7 @@ class _LineGraphState extends State<LineGraph> {
   Widget build(BuildContext context) {
     // Initial Data
     List<ChartData> data = initialData;
+    List<ChartData> filteredData = data;
 
     // Humidity chart should display from 0% to 100%
     const double humidityFixedUpperLimit = 100;
@@ -65,129 +64,142 @@ class _LineGraphState extends State<LineGraph> {
       tempSpots.add(FlSpot(double.parse(data[i].unixTime.toString()), convertTemperatureValue(data[i].temperature)));
     }
 
-    return Container(
-      height: 500,
-      margin: const EdgeInsets.all(50),
-      child: LineChart(
-        LineChartData(
-          lineBarsData: [
-            LineChartBarData(
-              spots: tempSpots,
-              color: temperatureColor,
-              isCurved: false,
-              dotData: FlDotData(show: false),
-            ),
-            LineChartBarData(
-              spots: humiSpots,
-              color: humidityColor,
-              isCurved: false,
-              dotData: FlDotData(show: false),
-            ),
-          ],
-          minX: double.parse(data.first.unixTime.toString()),
-          maxX: double.parse(data.last.unixTime.toString()),
-          minY: humidityFixedLowerLimit,
-          maxY: humidityFixedUpperLimit,
-          titlesData: FlTitlesData(
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(
-              axisNameWidget: const Padding(
-                padding: EdgeInsets.only(bottom: 8.0),
-                child: Text("Humidity"),
-              ),
-              axisNameSize: 40,
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 50,
-                interval: 10,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    " $value %",
-                    style: const TextStyle(color: humidityColor),
-                  );
-                },
-              ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 150,
-                getTitlesWidget: (value, meta) {
-                  return RotatedBox(
-                    quarterTurns: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: Text(
-                        unixToDateTime(
-                          unixStamp: value.toInt(),
-                          dateFormat: 'MMM d, yyyy H:mm',
+    return Column(
+      children: [
+        Container(
+          height: 500,
+          margin: const EdgeInsets.all(50),
+          child: LineChart(
+            LineChartData(
+              lineBarsData: [
+                LineChartBarData(
+                  spots: tempSpots,
+                  color: temperatureColor,
+                  isCurved: false,
+                  dotData: FlDotData(show: false),
+                  barWidth: 1,
+                ),
+                LineChartBarData(
+                  spots: humiSpots,
+                  color: humidityColor,
+                  isCurved: false,
+                  dotData: FlDotData(show: false),
+                  barWidth: 1,
+                ),
+              ],
+              minX: double.parse(data.first.unixTime.toString()),
+              maxX: double.parse(data.last.unixTime.toString()),
+              minY: humidityFixedLowerLimit,
+              maxY: humidityFixedUpperLimit,
+              titlesData: FlTitlesData(
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(
+                  axisNameWidget: const Padding(
+                    padding: EdgeInsets.only(bottom: 8.0),
+                    child: Text("Humidity"),
+                  ),
+                  axisNameSize: 40,
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 50,
+                    interval: 10,
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        " $value %",
+                        style: const TextStyle(color: humidityColor),
+                      );
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 150,
+                    getTitlesWidget: (value, meta) {
+                      return RotatedBox(
+                        quarterTurns: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: Text(
+                            unixToDateTime(
+                              unixStamp: value.toInt(),
+                              dateFormat: 'MMM d, yyyy H:mm',
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
                         ),
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                  );
+                      );
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  axisNameWidget: const Padding(
+                    padding: EdgeInsets.only(bottom: 8.0),
+                    child: Text("Temperature"),
+                  ),
+                  axisNameSize: 40,
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 60,
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        "${displayTemperatureValue(value).toStringAsFixed(2)} ℃",
+                        style: const TextStyle(color: temperatureColor),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              lineTouchData: LineTouchData(
+                enabled: true,
+                touchTooltipData: LineTouchTooltipData(
+                  maxContentWidth: 150,
+                  tooltipMargin: 32,
+                  fitInsideVertically: true,
+                  fitInsideHorizontally: true,
+                  tooltipHorizontalAlignment: FLHorizontalAlignment.right,
+                  tooltipHorizontalOffset: 16,
+                  getTooltipItems: (touchedSpots) {
+                    List<LineTooltipItem> toolTipList = [];
+
+                    toolTipList.add(LineTooltipItem(
+                      "${unixToDateTime(unixStamp: touchedSpots[0].x.toInt(), dateFormat: "yyyy-MMM-dd, hh:mm")} \n Temperature: ${displayTemperatureValue(touchedSpots[0].y).toStringAsFixed(1)} ℃",
+                      const TextStyle(color: Colors.white),
+                    ));
+
+                    toolTipList.add(LineTooltipItem(
+                      "Humidity: ${touchedSpots[1].y} %",
+                      const TextStyle(color: Colors.white),
+                    ));
+
+                    return toolTipList;
+                  },
+                ),
+                getTouchedSpotIndicator: (LineChartBarData barData, List<int> indicators) {
+                  return indicators.map(
+                    (int index) {
+                      final line = FlLine(
+                        color: Colors.grey,
+                        strokeWidth: 3,
+                      );
+                      return TouchedSpotIndicatorData(
+                        line,
+                        FlDotData(),
+                      );
+                    },
+                  ).toList();
                 },
               ),
             ),
-            leftTitles: AxisTitles(
-              axisNameWidget: const Padding(
-                padding: EdgeInsets.only(bottom: 8.0),
-                child: Text("Temperature"),
-              ),
-              axisNameSize: 40,
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 60,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    "${displayTemperatureValue(value).toStringAsFixed(2)} ℃",
-                    style: const TextStyle(color: temperatureColor),
-                  );
-                },
-              ),
-            ),
-          ),
-          lineTouchData: LineTouchData(
-            enabled: true,
-            touchTooltipData: LineTouchTooltipData(
-              maxContentWidth: 150,
-              tooltipMargin: 32,
-              fitInsideVertically: true,
-              tooltipHorizontalAlignment: FLHorizontalAlignment.right,
-              tooltipHorizontalOffset: 16,
-              getTooltipItems: (touchedSpots) {
-                List<LineTooltipItem> toolTipList = [];
-
-                toolTipList.add(LineTooltipItem(
-                  "${unixToDateTime(unixStamp: touchedSpots[0].x.toInt(), dateFormat: "yyyy-MMM-dd, hh:mm")} \n Temperature: ${displayTemperatureValue(touchedSpots[0].y).toStringAsFixed(1)} ℃",
-                  const TextStyle(color: Colors.white),
-                ));
-
-                toolTipList.add(LineTooltipItem(
-                  "Humidity: ${touchedSpots[1].y} %",
-                  const TextStyle(color: Colors.white),
-                ));
-
-                return toolTipList;
-              },
-            ),
-            getTouchedSpotIndicator: (LineChartBarData barData, List<int> indicators) {
-              return indicators.map(
-                (int index) {
-                  final line = FlLine(
-                    color: Colors.grey,
-                    strokeWidth: 3,
-                  );
-                  return TouchedSpotIndicatorData(
-                    line,
-                    FlDotData(),
-                  );
-                },
-              ).toList();
-            },
           ),
         ),
-      ),
+        ChartSlider(
+          min: data.first.unixTime,
+          max: data.last.unixTime,
+          onChanged: (RangeValues value) {},
+          onChangeEnd: (RangeValues value) {},
+        ),
+      ],
     );
   }
 }
