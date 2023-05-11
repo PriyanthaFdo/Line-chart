@@ -29,8 +29,8 @@ class _LineGraphState extends State<LineGraph> {
     const double leftLowerLimit = 2;
 
     // The min and max of the chart
-    const double leftMax = leftUpperLimit + /*5; */ (leftUpperLimit - leftLowerLimit) / 2;
-    const double leftMin = leftLowerLimit - /*5; */ (leftUpperLimit - leftLowerLimit) / 2;
+    const double leftMax = 6; /*leftUpperLimit + 5;  (leftUpperLimit - leftLowerLimit) / 2;*/
+    const double leftMin = 0; /*leftLowerLimit - /*5; */ (leftUpperLimit - leftLowerLimit) / 2;*/
     const double rightMax = 100;
     const double rightMin = 0;
 
@@ -127,6 +127,7 @@ class _LineGraphState extends State<LineGraph> {
                   color: leftColor.withOpacity(0.25),
                 )
               ],
+              clipData: FlClipData.all(),
               minX: data.first.unixTime.toDouble(),
               maxX: data.last.unixTime.toDouble(),
               minY: rightMin,
